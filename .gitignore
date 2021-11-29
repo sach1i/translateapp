@@ -1,0 +1,5 @@
+# Air temporary directory.
+tmp/
+
+# Local development configurations.
+.devcontainer/
