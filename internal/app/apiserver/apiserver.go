@@ -40,13 +40,18 @@ func (s *Server) TranslateInput() http.HandlerFunc {
 		startTime := time.Now()
 		log.Printf("Post request triggered at %s", startTime)
 		var i Input
+		var resp Response
+		log.Printf("%v", len(i.Word))
+		if len(i.Word) > 0 {
+			resp.TranslatedWord = i.Word
+		} else {
+			http.Error(w, "Invalid input", http.StatusBadRequest)
+			return
+		}
 		if err := json.NewDecoder(r.Body).Decode(&i); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		var resp Response
-
-		resp.TranslatedWord = i.Word
 
 		respJson, err := json.Marshal(resp)
 		if err != nil {

@@ -1,0 +1,62 @@
+openapi: 3.0.0
+info:
+  description: This is a simple API
+  version: 1.0.0-oas3
+  title: Intive Golang Academy
+  contact:
+    email: bogdan.novikov@intive.com
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+
+paths:
+  /translate:
+    post:
+      summary: translates a wrod
+      operationId: translate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/input'
+      responses:
+        '200':
+          description: word translated
+        '400':
+          description: invalid input
+        '500':
+          description: internal server error
+        default:
+          description: invalid input
+        
+  /languages:
+    get:
+      summary: shows a list of available languages
+      operationId: listLanguages
+      responses:
+        '200':
+          description: list of languages returned
+        '500':
+          description: internal server error
+          
+servers:
+  - url: https://virtserver.swaggerhub.com/Golang-academy/Workshop1/1.0.0
+components:
+  schemas:
+    input:
+      type: object
+      required:
+        - word
+        - source  
+        - target
+      properties:
+        word:
+          type: string
+          example: dog
+        target:
+          type: string
+          example: en
+        source:
+          type: string
+          example: en
