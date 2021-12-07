@@ -3,3 +3,5 @@ tmp/
 
 # Local development configurations.
 .devcontainer/
+.idea/vcs.xml
+.idea/workspace.xml
