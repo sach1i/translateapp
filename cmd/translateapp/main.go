@@ -3,22 +3,15 @@ package main
 import (
 	"context"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-	"translateapp/internal/app/apiserver"
+	"translateapp/internal/server"
 )
 
 func main() {
-	server := http.Server{
-		Addr:         ":8080",
-		Handler:      apiserver.NewServer(),
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  15 * time.Second,
-	}
+	server := server.NewServer().Run()
 	// channel for listening to server errors
 	serverErrors := make(chan error, 1)
 

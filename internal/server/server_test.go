@@ -1,4 +1,4 @@
-package apiserver_test
+package server_test
 
 import (
 	"bytes"
@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"translateapp/internal/app/apiserver"
+	"translateapp/internal/server"
 )
 
 func TestListLanguages(t *testing.T) {
-	s := apiserver.NewServer()
+	s := server.NewServer()
 	req := httptest.NewRequest(http.MethodGet, "/languages", nil)
 	w := httptest.NewRecorder()
 	s.ListLanguages().ServeHTTP(w, req)
@@ -40,7 +40,7 @@ func TestListLanguages(t *testing.T) {
 }
 
 func TestTranslateInput(t *testing.T) {
-	s := apiserver.NewServer()
+	s := server.NewServer()
 	data := map[string]string{"word": "testword", "source": "en", "target": "es"}
 	postData, err := json.Marshal(data)
 	if err != nil {
