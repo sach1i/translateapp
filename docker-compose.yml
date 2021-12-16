@@ -29,10 +29,10 @@ services:
     volumes:
       - libretranslate-data:/var/lib/libretranslate/data
     environment:
-      ARGOS_PACKAGES_DIR: "/var/lib/libretranslate/data"
-      LT_DEBUG: "True"
-      LT_LOAD_ONLY: "en,pl"
-      LT_FRONTEND_LANGUAGE_TARGET: "pl"
+     ARGOS_PACKAGES_DIR: "/var/lib/libretranslate/data"
+     LT_DEBUG: "True"
+     LT_LOAD_ONLY: "en,pl"
+     LT_FRONTEND_LANGUAGE_TARGET: "pl"
     ports:
       - "127.0.0.1:5000:5000"
 

@@ -1,12 +1,13 @@
 package client
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"time"
-	m "translateapp/internal/models"
+	"translateapp/internal/models"
 )
 
 const BaseURLLibre = "http://libretranslate:5000"
@@ -23,33 +24,80 @@ func NewClient() *Client {
 	}
 }
 
-func (c *Client) GetLanguages(ctx context.Context) (*m.ClientSuccessResponse, *m.ClientErrResponse) {
-	var errResp m.ClientErrResponse
+func (c *Client) GetLanguages(ctx context.Context) (*models.LanguageList, *models.ClientErrResponse) {
+	var errResp models.ClientErrResponse
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/languages", c.BaseURL), nil)
 	if err != nil {
-		errResp.Message = fmt.Sprintf("%s", err)
+		errResp.Message.Message = err.Error()
 		errResp.Code = 500
 		return nil, &errResp
 	}
 	req = req.WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-
 	res, err := c.HTTPClient.Do(req)
 	if err != nil {
-		errResp.Message = fmt.Sprintf("%s", err)
-		errResp.Code = res.StatusCode
-		return nil, &errResp
-	}
-	defer res.Body.Close()
-	bytes, errRead := ioutil.ReadAll(res.Body)
-	if errRead != nil {
-		errResp.Message = fmt.Sprintf("%s", errRead)
+		errResp.Message.Message = err.Error()
 		errResp.Code = 500
 		return nil, &errResp
 	}
-	var response m.ClientSuccessResponse
-	response.Code = res.StatusCode
-	response.Data = string(bytes)
-	return &response, nil
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		errResp.Code = res.StatusCode
+		if err := json.NewDecoder(res.Body).Decode(&errResp.Message); err != nil {
+			errResp.Message.Message = err.Error()
+			return nil, &errResp
+		}
+		return nil, &errResp
+	}
+	var langList models.LanguageList
+	if err := json.NewDecoder(res.Body).Decode(&langList.Languages); err != nil {
+		errResp.Message.Message = err.Error()
+		errResp.Code = 500
+		return nil, &errResp
+	}
+	return &langList, nil
+}
+
+func (c *Client) Translate(ctx context.Context, input models.Input) (*models.Translation, *models.ClientErrResponse) {
+	var errResp models.ClientErrResponse
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(input)
+	if err != nil {
+		errResp.Message.Message = err.Error()
+		errResp.Code = 500
+		return nil, &errResp
+	}
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/translate", c.BaseURL), &body)
+	if err != nil {
+		errResp.Message.Message = err.Error()
+		errResp.Code = 500
+		return nil, &errResp
+	}
+	req = req.WithContext(ctx)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	res, err := c.HTTPClient.Do(req)
+	if err != nil {
+		errResp.Message.Message = err.Error()
+		errResp.Code = 500
+		return nil, &errResp
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 { //nolint:wsl
+		errResp.Code = res.StatusCode
+		if err := json.NewDecoder(res.Body).Decode(&errResp.Message); err != nil {
+			errResp.Message.Message = err.Error()
+			return nil, &errResp
+		}
+		return nil, &errResp
+	}
+	var translation models.Translation
+	//var translation models.Translation
+	if err := json.NewDecoder(res.Body).Decode(&translation); err != nil {
+		errResp.Message.Message = err.Error()
+		errResp.Code = 500
+		return nil, &errResp
+	}
+	return &translation, nil
 }

@@ -2,9 +2,8 @@ package service
 
 import (
 	"context"
-	"log"
 	"translateapp/internal/client"
-	m "translateapp/internal/models"
+	"translateapp/internal/models"
 )
 
 type Service struct {
@@ -18,11 +17,26 @@ func NewService() *Service {
 	return ser
 }
 
-func (ser *Service) Languages(ctx context.Context) (*m.ClientSuccessResponse, *m.ClientErrResponse) {
-	response, err := ser.client.GetLanguages(ctx)
-	log.Printf("in service %v,%v", response, err)
+func (s *Service) Languages(ctx context.Context) (*models.GetRes, *models.ClientErrResponse) {
+	langList, err := s.client.GetLanguages(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return response, nil
+	var response models.GetRes
+	response.Data = *langList
+	response.Code = 200
+	response.Message = "success"
+	return &response, nil
+}
+
+func (s *Service) Translate(ctx context.Context, input models.Input) (*models.PostRes, *models.ClientErrResponse) {
+	translation, err := s.client.Translate(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	var response models.PostRes
+	response.Data = *translation
+	response.Code = 200
+	response.Message = "success"
+	return &response, nil
 }
