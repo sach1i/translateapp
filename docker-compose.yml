@@ -9,3 +9,33 @@ services:
       - .:/opt/app
     ports:
       - "127.0.0.1:8080:8080"
+
+  # db:
+    # image: postgres:14.1-alpine3.15
+    # restart: unless-stopped
+    # volumes:
+      # - postgres-data:/var/lib/postgresql/data
+    # environment:
+      # POSTGRES_USER: postgres
+      # POSTGRES_DB: postgres
+      # POSTGRES_PASSWORD: postgres
+    # ports:
+      # - "127.0.0.1:5432:5432"
+
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    restart: unless-stopped
+    tty: true
+    volumes:
+      - libretranslate-data:/var/lib/libretranslate/data
+    environment:
+     ARGOS_PACKAGES_DIR: "/var/lib/libretranslate/data"
+     LT_DEBUG: "True"
+     LT_LOAD_ONLY: "en,pl"
+     LT_FRONTEND_LANGUAGE_TARGET: "pl"
+    ports:
+      - "127.0.0.1:5000:5000"
+
+volumes:
+  postgres-data:
+  libretranslate-data:
