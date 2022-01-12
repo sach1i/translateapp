@@ -1,6 +1,8 @@
 package logging
 
 import (
+	"context"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +29,7 @@ func NewLogger(level string, development bool) *zap.SugaredLogger {
 	var config *zap.Config
 	if development {
 		config = &zap.Config{
-			Level:            zap.NewAtomicLevelAt(LevelToZapLevel(level)),
+			Level:            zap.NewAtomicLevelAt(levelToZapLevel(level)),
 			Development:      true,
 			Encoding:         encodingConsole,
 			EncoderConfig:    developmentEncoderConfig,
@@ -36,7 +38,7 @@ func NewLogger(level string, development bool) *zap.SugaredLogger {
 		}
 	} else {
 		config = &zap.Config{
-			Level:            zap.NewAtomicLevelAt(LevelToZapLevel(level)),
+			Level:            zap.NewAtomicLevelAt(levelToZapLevel(level)),
 			Encoding:         encodingJSON,
 			EncoderConfig:    productionEncoderConfig,
 			OutputPaths:      outputStderr,
@@ -52,6 +54,37 @@ func NewLogger(level string, development bool) *zap.SugaredLogger {
 	return logger.Sugar()
 }
 
+// NewLoggerFromEnv creates a new logger from the environment. It consumes
+// LOG_LEVEL for determining the level and LOG_MODE for determining the output
+// parameters.
+func NewLoggerFromEnv() *zap.SugaredLogger {
+	level := os.Getenv("LOG_LEVEL")
+	development := strings.ToLower(strings.TrimSpace(os.Getenv("LOG_MODE"))) == "development"
+	return NewLogger(level, development)
+}
+
+// DefaultLogger returns the default logger for the package.
+func DefaultLogger() *zap.SugaredLogger {
+	defaultLoggerOnce.Do(func() {
+		defaultLogger = NewLoggerFromEnv()
+	})
+	return defaultLogger
+}
+
+// WithLogger creates a new context with the provided logger attached.
+func WithLogger(ctx context.Context, logger *zap.SugaredLogger) context.Context {
+	return context.WithValue(ctx, loggerKey, logger)
+}
+
+// FromContext returns the logger stored in the context. If no such logger
+// exists, a default logger is returned.
+func FromContext(ctx context.Context) *zap.SugaredLogger {
+	if logger, ok := ctx.Value(loggerKey).(*zap.SugaredLogger); ok {
+		return logger
+	}
+	return DefaultLogger()
+}
+
 const (
 	timestamp  = "timestamp"
 	severity   = "severity"
@@ -60,13 +93,13 @@ const (
 	message    = "message"
 	stacktrace = "stacktrace"
 
-	LevelDebug     = "DEBUG"
-	LevelInfo      = "INFO"
-	LevelWarning   = "WARNING"
-	LevelError     = "ERROR"
-	LevelCritical  = "CRITICAL"
-	LevelAlert     = "ALERT"
-	LevelEmergency = "EMERGENCY"
+	levelDebug     = "DEBUG"
+	levelInfo      = "INFO"
+	levelWarning   = "WARNING"
+	levelError     = "ERROR"
+	levelCritical  = "CRITICAL"
+	levelAlert     = "ALERT"
+	levelEmergency = "EMERGENCY"
 
 	encodingConsole = "console"
 	encodingJSON    = "json"
@@ -103,23 +136,23 @@ var developmentEncoderConfig = zapcore.EncoderConfig{
 	EncodeCaller:   zapcore.ShortCallerEncoder,
 }
 
-// LevelToZapLevel converts the given string to the appropriate zap level
+// levelToZapLevel converts the given string to the appropriate zap level
 // value.
-func LevelToZapLevel(s string) zapcore.Level {
+func levelToZapLevel(s string) zapcore.Level {
 	switch strings.ToUpper(strings.TrimSpace(s)) {
-	case LevelDebug:
+	case levelDebug:
 		return zapcore.DebugLevel
-	case LevelInfo:
+	case levelInfo:
 		return zapcore.InfoLevel
-	case LevelWarning:
+	case levelWarning:
 		return zapcore.WarnLevel
-	case LevelError:
+	case levelError:
 		return zapcore.ErrorLevel
-	case LevelCritical:
+	case levelCritical:
 		return zapcore.DPanicLevel
-	case LevelAlert:
+	case levelAlert:
 		return zapcore.PanicLevel
-	case LevelEmergency:
+	case levelEmergency:
 		return zapcore.FatalLevel
 	}
 
@@ -131,19 +164,19 @@ func levelEncoder() zapcore.LevelEncoder {
 	return func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 		switch l {
 		case zapcore.DebugLevel:
-			enc.AppendString(LevelDebug)
+			enc.AppendString(levelDebug)
 		case zapcore.InfoLevel:
-			enc.AppendString(LevelInfo)
+			enc.AppendString(levelInfo)
 		case zapcore.WarnLevel:
-			enc.AppendString(LevelWarning)
+			enc.AppendString(levelWarning)
 		case zapcore.ErrorLevel:
-			enc.AppendString(LevelError)
+			enc.AppendString(levelError)
 		case zapcore.DPanicLevel:
-			enc.AppendString(LevelCritical)
+			enc.AppendString(levelCritical)
 		case zapcore.PanicLevel:
-			enc.AppendString(LevelAlert)
+			enc.AppendString(levelAlert)
 		case zapcore.FatalLevel:
-			enc.AppendString(LevelEmergency)
+			enc.AppendString(levelEmergency)
 		}
 	}
 }

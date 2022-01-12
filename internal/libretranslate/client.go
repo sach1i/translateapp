@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-const BaseURLLibre = "http://libretranslate:5000"
-
 type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
@@ -20,12 +18,12 @@ type Client struct {
 
 type ClientInterface interface {
 	GetLanguages(ctx context.Context) (*LanguageList, error)
-	Translate(ctx context.Context, input interface{}) (*Translation, error)
+	Translate(ctx context.Context, input Input) (*Translation, error)
 }
 
-func NewClient(logger *zap.SugaredLogger) ClientInterface {
+func NewClient(logger *zap.SugaredLogger, baseURL string) ClientInterface {
 	return &Client{
-		BaseURL:    BaseURLLibre,
+		BaseURL:    baseURL,
 		HTTPClient: &http.Client{Timeout: 30 * time.Second},
 		Logger:     logger,
 	}
@@ -76,7 +74,7 @@ func (c *Client) GetLanguages(ctx context.Context) (*LanguageList, error) {
 	return &langList, nil
 }
 
-func (c *Client) Translate(ctx context.Context, input interface{}) (*Translation, error) {
+func (c *Client) Translate(ctx context.Context, input Input) (*Translation, error) {
 	var errResp CustomError
 	var body bytes.Buffer
 	if err := json.NewEncoder(&body).Encode(input); err != nil {
@@ -105,16 +103,17 @@ func (c *Client) Translate(ctx context.Context, input interface{}) (*Translation
 	defer res.Body.Close()
 	c.Logger.Info("Successfully contacted with Libretranslate")
 	if res.StatusCode != 200 {
-		keeper := map[string]string{
-			"error": "",
+		type Keeper struct {
+			Error string `json:"error"`
 		}
+		var keeper Keeper
 		errResp.Code = res.StatusCode
 		if err := json.NewDecoder(res.Body).Decode(&keeper); err != nil {
 			errResp.Message = err.Error()
 			c.Logger.Errorf("%s", errResp.Error())
 			return nil, &errResp
 		}
-		errResp.Message = keeper["error"]
+		errResp.Message = keeper.Error
 		return nil, &errResp
 	}
 	var translation Translation

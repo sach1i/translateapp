@@ -6,8 +6,7 @@ import (
 	"go.uber.org/zap"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
+	"sync"
 	"time"
 )
 
@@ -23,15 +22,14 @@ func NewServer(app http.Handler, logger *zap.SugaredLogger) *http.Server {
 	return &server
 }
 
-func RunServer(server *http.Server, logger *zap.SugaredLogger) error {
+func RunServer(server *http.Server, logger *zap.SugaredLogger, wg *sync.WaitGroup, osShutdown chan os.Signal) error {
 	serverErrors := make(chan error, 1)
 	go func() {
 		logger.Infof("server is listening at: %s", server.Addr)
 		serverErrors <- server.ListenAndServe()
 	}()
 	// channel for listening to system errors
-	osShutdown := make(chan os.Signal, 1)
-	signal.Notify(osShutdown, os.Interrupt, syscall.SIGTERM)
+
 	// graceful shutdown differ based on source of error
 	select {
 	case err := <-serverErrors:
@@ -47,6 +45,7 @@ func RunServer(server *http.Server, logger *zap.SugaredLogger) error {
 		if err != nil {
 			err = server.Close()
 		}
+		wg.Done()
 	}
 	return nil
 }
