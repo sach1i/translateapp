@@ -15,8 +15,9 @@ func TestService_Languages(t *testing.T) {
 	expectedServiceOutput := translateapp.Response{Data: *expectedGetOutput}
 	lt := mocks.Client{}
 	lt.On("GetLanguages", mock.Anything).Return(expectedGetOutput, nil)
-
-	service := translateapp.NewService(&lt, logging.DefaultLogger())
+	tr := mocks.Translator{}
+	tr.On("Translate")
+	service := translateapp.NewService(&lt, &tr, logging.DefaultLogger())
 	res, err := service.Languages(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, &expectedServiceOutput, res)
@@ -25,7 +26,7 @@ func TestService_Languages(t *testing.T) {
 
 func TestService_Translate(t *testing.T) {
 
-	expectedServiceOutput := translateapp.Response{Data: *expectedPostOutput}
+	expectedServiceOutput := translateapp.Response{Data: "mysz"}
 	lt := mocks.Client{}
 	mockedClientInput := libretranslate.Input{
 		Word:   "mouse",
@@ -37,8 +38,10 @@ func TestService_Translate(t *testing.T) {
 		Source: "en",
 		Target: "pl",
 	}
-	lt.On("Translate", mock.Anything, mockedClientInput).Return(expectedPostOutput, nil)
-	service := translateapp.NewService(&lt, logging.DefaultLogger())
+
+	tr := mocks.Translator{}
+	tr.On("Translate", mock.Anything, mockedClientInput).Return("mysz", nil)
+	service := translateapp.NewService(&lt, &tr, logging.DefaultLogger())
 	res, err := service.Translate(context.Background(), mockedServiceInput)
 	require.NoError(t, err)
 	require.Equal(t, &expectedServiceOutput, res)

@@ -2,70 +2,88 @@ package cache
 
 import (
 	"go.uber.org/zap"
-	"os"
 	"sync"
 	"time"
 )
 
-type Cache struct {
-	//translator string
-	storage map[string]*cachedItem
-	l       sync.Mutex
-	Logger  *zap.SugaredLogger
-}
-
-// Cacher defines interface for cache implementers.
-type Cacher interface {
-	Set(word, translation string)
-	Get(value string) (translation string)
-	Refresher(TTL int, wg *sync.WaitGroup, osShutdown chan os.Signal)
-}
-
-func NewCache(size int, logger *zap.SugaredLogger) Cacher {
-	return New(size, logger)
-}
-
-func New(size int, logger *zap.SugaredLogger) (c *Cache) {
-	c = &Cache{
-		storage: make(map[string]*cachedItem, size),
-		Logger:  logger,
-	}
-	logger.Info("New cache initialized")
-
-	return c
-}
-
-func (c *Cache) Refresher(TTL int, wg *sync.WaitGroup, osShutdown chan os.Signal) {
-
-	go func() {
-		<-osShutdown
-		for now := range time.Tick(time.Second) {
-			c.l.Lock()
-			for k, v := range c.storage {
-				if now.Unix()-v.lastAccess > int64(TTL) {
-					delete(c.storage, k)
-				}
-			}
-			c.l.Unlock()
-			wg.Done()
-		}
-	}()
-}
-
 type cachedItem struct {
 	word        string
 	translation string
-	lastAccess  int64
+	lastAccess  time.Time
+}
+
+type Cache struct {
+	//translator string
+	storage  map[string]*cachedItem
+	l        sync.Mutex
+	logger   *zap.SugaredLogger
+	cacheTTL time.Duration
+
+	chanStop chan struct{}
+	chanDone chan struct{}
+}
+
+// CacheInterface defines interface for cache implementers.
+type CacheInterface interface {
+	Set(word, translation string)
+	Get(value string) (translation string)
+}
+
+// Creates new cache of size size and TTL of cacheTTL, which starts goroutine to auto delete unused values
+func NewCache(size int, cacheTTL time.Duration, logger *zap.SugaredLogger) *Cache {
+	c := Cache{
+		storage:  make(map[string]*cachedItem, size),
+		logger:   logger,
+		cacheTTL: cacheTTL,
+		chanStop: make(chan struct{}),
+		chanDone: make(chan struct{}),
+	}
+	// routine for removing unused values
+	go c.Refresher()
+	logger.Info("New cache initialized")
+	return &c
+}
+
+// closes cache
+func (c *Cache) Close() {
+	close(c.chanStop)
+	<-c.chanDone
+	c.logger.Info("Cache closed")
+}
+
+func (c *Cache) Refresher() {
+	defer close(c.chanDone)
+	chanTick := time.NewTicker(2 * time.Second)
+	for {
+		select {
+		case <-chanTick.C:
+			c.Cleanup()
+		case <-c.chanStop:
+			chanTick.Stop()
+			c.logger.Info("leaving refresher")
+			return
+		}
+	}
+}
+
+func (c *Cache) Cleanup() {
+	c.l.Lock()
+	for k, v := range c.storage {
+		if time.Since(v.lastAccess) > c.cacheTTL {
+			delete(c.storage, k)
+		}
+	}
+	c.l.Unlock()
 }
 
 func (c *Cache) Get(value string) (translation string) {
 	c.l.Lock()
 	if item, ok := c.storage[value]; ok {
 		translation = item.translation
-		item.lastAccess = time.Now().Unix()
-		c.Logger.Info("Value got from cache")
+		item.lastAccess = time.Now()
+		c.logger.Info("Value got from cache")
 	} else {
-		c.Logger.Info("Value has not been cached yet")
+		c.logger.Info("Value has not been cached yet")
 	}
 
 	c.l.Unlock()
@@ -77,25 +95,9 @@ func (c *Cache) Set(word, translation string) {
 	var newItem cachedItem
 	newItem.word = word
 	newItem.translation = translation
-	newItem.lastAccess = time.Now().Unix()
+	newItem.lastAccess = time.Now()
 	c.storage[word] = &newItem
-	c.Logger.Info("New value was added to cache")
+	c.logger.Info("New value was added to cache")
 	c.l.Unlock()
 	return
 }
-
-/*
-func main() {
-	nc := NewCache(10,10)
-	nc.Set("mouse", "mysz")
-	//nc.Set("mouse", "mysz")
-	fmt.Printf("1st %v",nc.Get("mouse"))
-	time.Sleep(5 * time.Second)
-	fmt.Printf("\n2nd %v",nc.Get("mouse"))
-	time.Sleep(10 * time.Second)
-	fmt.Printf("\n3d %T",nc.Get("mouse"))
-	time.Sleep(11* time.Second)
-	fmt.Printf("\nlast %v,  %T",nc.Get("mouse"),nc.Get("mouse"))
-	}
-
-*/

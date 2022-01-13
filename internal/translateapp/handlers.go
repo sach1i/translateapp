@@ -14,11 +14,10 @@ func (a *App) TranslateInput() http.HandlerFunc {
 		ctx := r.Context()
 
 		myService := a.Service
-		//input, err := ioutil.ReadAll(r.Body)
 		var i Input
 		if err := json.NewDecoder(r.Body).Decode(&i); err != nil {
 			response.WriteHeader(http.StatusBadRequest)
-			response.Write([]byte(`"error":"Could not read request body"`))
+			_ = json.NewEncoder(response).Encode("Couldn't read request body")
 			a.Logger.Errorf("%s", err)
 		}
 
@@ -28,7 +27,10 @@ func (a *App) TranslateInput() http.HandlerFunc {
 
 		if customErr != nil {
 			response.WriteHeader(http.StatusInternalServerError)
-			response.Write([]byte(customErr.Error()))
+			err := json.NewEncoder(response).Encode(customErr.Error())
+			if err != nil {
+				a.Logger.Fatalf("%s", err)
+			}
 
 		} else {
 			response.WriteHeader(http.StatusOK)

@@ -8,7 +8,7 @@ import (
 
 type App struct {
 	Router  *mux.Router
-	Service Servicer
+	Service ServiceInterface
 	Logger  *zap.SugaredLogger
 }
 
@@ -18,14 +18,14 @@ type AppInterface interface {
 	ServeHTTP(http.ResponseWriter, *http.Request)
 }
 
-func NewApp(service Servicer, logger *zap.SugaredLogger) AppInterface {
-	a := &App{
+func NewApp(service ServiceInterface, logger *zap.SugaredLogger) *App {
+	a := App{
 		Router:  mux.NewRouter(),
 		Service: service,
 		Logger:  logger,
 	}
 	a.routes()
-	return a
+	return &a
 }
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {

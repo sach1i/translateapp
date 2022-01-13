@@ -8,7 +8,7 @@ import (
 )
 
 type Translator struct {
-	Cache  cache.Cacher
+	Cache  cache.CacheInterface
 	Client libretranslate.ClientInterface
 	Logger *zap.SugaredLogger
 }
@@ -17,7 +17,7 @@ type TranslateInterface interface {
 	Translate(ctx context.Context, input libretranslate.Input) (string, error)
 }
 
-func NewTranslator(c cache.Cacher, client libretranslate.ClientInterface, logger *zap.SugaredLogger) TranslateInterface {
+func NewTranslator(c cache.CacheInterface, client libretranslate.ClientInterface, logger *zap.SugaredLogger) *Translator {
 	return &Translator{
 		Cache:  c,
 		Client: client,
@@ -25,6 +25,7 @@ func NewTranslator(c cache.Cacher, client libretranslate.ClientInterface, logger
 	}
 }
 
+// Tries to get value from cache, implements read-through approach
 func (t *Translator) Translate(ctx context.Context, input libretranslate.Input) (string, error) {
 	t.Logger.Info("Translate function triggered in module Translator")
 	res := t.Cache.Get(input.Word)

@@ -3,31 +3,42 @@ package libretranslate_test
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"testing"
 	"translateapp/internal/libretranslate"
 	"translateapp/internal/logging"
-	"translateapp/internal/mocks"
 )
 
 func TestClient_GetLanguages(t *testing.T) {
-	testClient := mocks.Client{}
 	expectedGetOutput := &libretranslate.LanguageList{
 		Languages: []libretranslate.Language{
 			{
-				Name: "polish",
-				Code: "pl",
+				Name: "English",
+				Code: "en",
 			},
 			{
-				Name: "english",
-				Code: "en",
+				Name: "Polish",
+				Code: "pl",
 			},
 		},
 	}
-	testClient.On("GetLanguages", mock.Anything).Return(expectedGetOutput, nil)
-	realClient := libretranslate.NewClient(logging.DefaultLogger())
+	const BaseURLLibre = "http://localhost:5000"
+	realClient := libretranslate.NewClient(logging.DefaultLogger(), BaseURLLibre)
 	response, err := realClient.GetLanguages(context.Background())
 	assert.Equal(t, expectedGetOutput, response)
 	assert.Nil(t, err)
-
+}
+func TestClient_Translate(t *testing.T) {
+	expectedPostOutput := &libretranslate.Translation{
+		Text: "mysz",
+	}
+	testInput := libretranslate.Input{
+		Word:   "mouse",
+		Source: "en",
+		Target: "pl",
+	}
+	const BaseURLLibre = "http://localhost:5000"
+	realClient := libretranslate.NewClient(logging.DefaultLogger(), BaseURLLibre)
+	response, err := realClient.Translate(context.Background(), testInput)
+	assert.Equal(t, expectedPostOutput, response)
+	assert.Nil(t, err)
 }

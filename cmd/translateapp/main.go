@@ -3,10 +3,7 @@ package main
 import (
 	"go.uber.org/zap"
 	"log"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
+	"time"
 	"translateapp/internal/cache"
 	"translateapp/internal/libretranslate"
 	"translateapp/internal/logging"
@@ -19,28 +16,29 @@ const BaseURLLibre = "http://libretranslate:5000"
 
 func main() {
 	newLogger := logging.NewLogger("INFO", true)
-	var wg = sync.WaitGroup{}
-	if err := runApp(newLogger, &wg); err != nil {
+	if err := runApp(newLogger); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func runApp(logger *zap.SugaredLogger, wg *sync.WaitGroup) error {
-	var cacheSize = 20
-	var cacheTTL = 10
-	osShutdown := make(chan os.Signal, 1)
-	signal.Notify(osShutdown, os.Interrupt, syscall.SIGTERM)
-	wg.Add(2)
+func runApp(logger *zap.SugaredLogger) error {
+	const (
+		cacheSize = 20
+		cacheTTL  = 10 * time.Second
+	)
+
 	client := libretranslate.NewClient(logger, BaseURLLibre)
-	newCache := cache.NewCache(cacheSize, logger)
-	newCache.Refresher(cacheTTL, wg, osShutdown)
+
+	newCache := cache.NewCache(cacheSize, cacheTTL, logger)
+	defer newCache.Close()
+
 	newTranslator := translator.NewTranslator(newCache, client, logger)
+
 	logic := translateapp.NewService(client, newTranslator, logger)
+
 	app := translateapp.NewApp(logic, logger)
+
 	srv := server.NewServer(app, logger)
-	if err := server.RunServer(srv, logger, wg, osShutdown); err != nil {
-		return err
-	}
-	wg.Wait()
-	return nil
+
+	return server.RunServer(srv, logger)
 }

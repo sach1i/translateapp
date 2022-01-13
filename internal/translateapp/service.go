@@ -13,12 +13,12 @@ type Service struct {
 	Translator translator.TranslateInterface
 }
 
-type Servicer interface {
+type ServiceInterface interface {
 	Languages(ctx context.Context) (*Response, error)
 	Translate(ctx context.Context, input Input) (*Response, error)
 }
 
-func NewService(client libretranslate.ClientInterface, translator translator.TranslateInterface, logger *zap.SugaredLogger) Servicer {
+func NewService(client libretranslate.ClientInterface, translator translator.TranslateInterface, logger *zap.SugaredLogger) *Service {
 	return &Service{
 		Client:     client,
 		Translator: translator,
