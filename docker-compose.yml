@@ -37,5 +37,5 @@ services:
       - "127.0.0.1:5000:5000"
 
 volumes:
-  postgres-data:
+  #postgres-data:
   libretranslate-data:

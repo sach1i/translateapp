@@ -1,43 +1,44 @@
 package main
 
 import (
-	"context"
+	"go.uber.org/zap"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
-	"translateapp/internal/logger"
+	"translateapp/internal/cache"
+	"translateapp/internal/libretranslate"
+	"translateapp/internal/logging"
 	"translateapp/internal/server"
+	"translateapp/internal/translateapp"
+	"translateapp/internal/translator"
 )
 
+const BaseURLLibre = "http://libretranslate:5000"
+
 func main() {
-	myServer := server.NewServer(logger.NewLogger()).Run()
-	// channel for listening to myServer errors
-	serverErrors := make(chan error, 1)
-
-	go func() {
-		log.Printf("Server is listening on %s", myServer.Addr)
-		serverErrors <- myServer.ListenAndServe()
-	}()
-	// channel for listening to system errors
-	osShutdown := make(chan os.Signal, 1)
-	signal.Notify(osShutdown, os.Interrupt, syscall.SIGTERM)
-	// graceful shutdown differ based on source of error
-	select {
-	case err := <-serverErrors:
-		log.Printf("myServer error: %s", err)
-
-	case <-osShutdown:
-		log.Printf("Server starting shutdown")
-		const timeout = 5 * time.Second
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		err := myServer.Shutdown(ctx)
-		if err != nil {
-			log.Printf("Not graceful shutdown, error: %v", err)
-			_ = myServer.Close()
-		}
-		log.Printf("Server shutdown gracefully")
+	newLogger := logging.NewLogger("INFO", true)
+	if err := runApp(newLogger); err != nil {
+		log.Fatal(err)
 	}
+}
+
+func runApp(logger *zap.SugaredLogger) error {
+	const (
+		cacheSize = 20
+		cacheTTL  = 10 * time.Second
+	)
+
+	client := libretranslate.NewClient(logger, BaseURLLibre)
+
+	newCache := cache.NewCache(cacheSize, cacheTTL, logger)
+	defer newCache.Close()
+
+	newTranslator := translator.NewTranslator(newCache, client, logger)
+
+	logic := translateapp.NewService(client, newTranslator, logger)
+
+	app := translateapp.NewApp(logic, logger)
+
+	srv := server.NewServer(app, logger)
+
+	return server.RunServer(srv, logger)
 }
